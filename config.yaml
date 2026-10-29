@@ -1,0 +1,61 @@
+# ============================================================
+#   Parking Restriction System — Configuration
+# ============================================================
+
+# ----------------------------------------------------------
+# Camera / Video Source
+# ----------------------------------------------------------
+# Options:
+#   0          → default webcam
+#   1, 2 ...   → other connected cameras
+#   "path/to/video.mp4"  → video file
+#   "rtsp://..."         → IP camera RTSP stream
+camera_source: 0
+
+# ----------------------------------------------------------
+# Parking Restriction Rule
+# ----------------------------------------------------------
+# Only this vehicle type is ALLOWED in the parking zone.
+# All other vehicles will trigger an UNAUTHORIZED alert.
+#
+# Allowed values:
+#   car | motorcycle | bus | truck | bicycle
+allowed_vehicle: "car"
+
+# ----------------------------------------------------------
+# Detection Settings
+# ----------------------------------------------------------
+# YOLO model to use (nano=fastest, medium=balanced, x=flagship highest accuracy)
+# Options: yolov8n.pt | yolov8s.pt | yolov8m.pt | yolov8l.pt | yolov8x.pt
+model: "yolov8x.pt"
+
+# Minimum confidence threshold (0.0 – 1.0)
+confidence_threshold: 0.25
+
+# Non-Maximum Suppression IoU threshold
+iou_threshold: 0.40
+
+# ----------------------------------------------------------
+# Display Settings
+# ----------------------------------------------------------
+# Show live dashboard panel (FPS, vehicle counts, allowed type)
+show_dashboard: true
+
+# Show detection confidence score on each bounding box
+show_confidence: true
+
+# Frame display scale (1.0 = original, 0.75 = 75%, etc.)
+display_scale: 1.0
+
+# ----------------------------------------------------------
+# Logging Settings
+# ----------------------------------------------------------
+# Save detection events to a CSV log file
+enable_logging: true
+log_file: "logs/detection_log.csv"
+
+# ----------------------------------------------------------
+# Alert Settings
+# ----------------------------------------------------------
+# Duration (in frames) to keep the alert banner visible after detection
+alert_duration_frames: 30

@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vision Parking — Intelligent Image & Stream Inspector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Apple Glass Design System ── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    :root {
+      --bg-dark:          #070a11;
+      --glass-bg:         rgba(255, 255, 255, 0.05);
+      --glass-bg-hover:   rgba(255, 255, 255, 0.08);
+      --glass-bg-active:  rgba(255, 255, 255, 0.12);
+      --glass-card:       rgba(20, 26, 40, 0.65);
+      --glass-border:     rgba(255, 255, 255, 0.12);
+      --glass-border-sub: rgba(255, 255, 255, 0.06);
+      --glass-specular:   inset 0 1px 1px 0 rgba(255, 255, 255, 0.28);
+      --glass-shadow:     0 24px 60px -12px rgba(0, 0, 0, 0.65);
+
+      /* Apple Vivid Palette */
+      --apple-blue:       #0a84ff;
+      --apple-blue-glow:  rgba(10, 132, 255, 0.35);
+      --apple-green:      #30d158;
+      --apple-green-glow: rgba(48, 209, 88, 0.35);
+      --apple-green-bg:   rgba(48, 209, 88, 0.12);
+      --apple-red:        #ff453a;
+      --apple-red-glow:   rgba(255, 69, 58, 0.35);
+      --apple-red-bg:     rgba(255, 69, 58, 0.12);
+      --apple-yellow:     #ffd60a;
+      --apple-purple:     #bf5af2;
+      
+      --text-main:        #f5f5f7;
+      --text-sub:         #86868b;
+      --text-dim:         #636366;
+      --radius-xl:        24px;
+      --radius-lg:        18px;
+      --radius-md:        12px;
+      --radius-sm:        8px;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Plus Jakarta Sans", "Inter", sans-serif;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Ambient dynamic light orbs */
+    .ambient-bg {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+    }
+    .orb-1 {
+      position: absolute; top: -15%; left: 15%; width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(10, 132, 255, 0.15) 0%, transparent 65%);
+      filter: blur(80px); animation: floatOrb 18s ease-in-out infinite alternate;
+    }
+    .orb-2 {
+      position: absolute; bottom: -10%; right: 10%; width: 650px; height: 650px;
+      background: radial-gradient(circle, rgba(191, 90, 242, 0.12) 0%, transparent 65%);
+      filter: blur(80px); animation: floatOrb 22s ease-in-out infinite alternate-reverse;
+    }
+    .orb-3 {
+      position: absolute; top: 40%; right: 35%; width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(48, 209, 88, 0.08) 0%, transparent 60%);
+      filter: blur(90px); animation: floatOrb 25s ease-in-out infinite alternate;
+    }
+
+    @keyframes floatOrb {
+      0%   { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(40px, 30px) scale(1.1); }
+    }
+
+    .app-wrapper {
+      position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh;
+    }
+
+    /* ── Floating Apple Glass Header ── */
+    header {
+      position: sticky; top: 16px; z-index: 100;
+      margin: 12px 24px 0;
+      padding: 12px 24px;
+      background: rgba(18, 24, 38, 0.72);
+      backdrop-filter: blur(36px) saturate(200%);
+      -webkit-backdrop-filter: blur(36px) saturate(200%);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-specular), 0 12px 36px rgba(0, 0, 0, 0.35);
+      border-radius: var(--radius-xl);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand-section {
+      display: flex; align-items: center; gap: 14px;
+    }
+    .brand-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(10, 132, 255, 0.9), rgba(191, 90, 242, 0.9));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; box-shadow: 0 4px 20px rgba(10, 132, 255, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .brand-title h1 {
+      font-size: 16px; font-weight: 700; letter-spacing: -0.3px; color: #fff;
+    }
+    .brand-title p {
+      font-size: 11px; font-weight: 500; color: var(--text-sub); letter-spacing: -0.1px;
+    }
+
+    /* ── Apple Segmented Control ── */
+    .segmented-control {
+      display: flex;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+    }
+    .seg-btn {
+      padding: 8px 18px;
+      border-radius: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-sub);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      z-index: 2;
+    }
+    .seg-btn:hover { color: #fff; }
+    .seg-btn.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    /* ── Header Controls: Rule Selector & Camera Switch ── */
+    .header-actions {
+      display: flex; align-items: center; gap: 14px;
+    }
+
+    .glass-pill-select {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-specular);
+      padding: 6px 14px;
+      border-radius: 12px;
+      transition: all 0.2s;
+    }
+    .glass-pill-select:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .glass-pill-select label {
+      font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .glass-pill-select select {
+      background: transparent; border: none; color: #fff;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      cursor: pointer; outline: none;
+    }
+    .glass-pill-select select option {
+      background: #151a26; color: #fff;
+    }
+
+    /* ── Authentic iOS / Apple Toggle Switch ── */
+    .camera-toggle-group {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-specular);
+      padding: 6px 14px;
+      border-radius: 12px;
+    }
+    .camera-status-label {
+      font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+      color: var(--text-sub);
+    }
+    .camera-status-label.on { color: var(--apple-green); }
+    .camera-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim);
+    }
+    .camera-dot.on {
+      background: var(--apple-green);
+      box-shadow: 0 0 10px var(--apple-green);
+      animation: pulseDot 1.6s infinite ease-in-out;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    .ios-switch {
+      position: relative; display: inline-block; width: 44px; height: 26px;
+    }
+    .ios-switch input { opacity: 0; width: 0; height: 0; }
+    .ios-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 99px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .ios-slider:before {
+      position: absolute; content: "";
+      height: 20px; width: 20px; left: 2px; bottom: 2px;
+      background: #ffffff;
+      border-radius: 50%;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    }
+    .ios-switch input:checked + .ios-slider {
+      background: var(--apple-green);
+      box-shadow: 0 0 14px var(--apple-green-glow);
+    }
+    .ios-switch input:checked + .ios-slider:before {
+      transform: translateX(18px);
+    }
+
+    /* ── Main Layout ── */
+    main {
+      flex: 1;
+      padding: 28px 24px;
+      max-width: 1560px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active {
+      display: block;
+      animation: glassFade 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes glassFade {
+      from { opacity: 0; transform: translateY(8px) scale(0.99); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ── Glass Cards & Layout ── */
+    .glass-card {
+      background: var(--glass-card);
+      backdrop-filter: blur(40px) saturate(190%);
+      -webkit-backdrop-filter: blur(40px) saturate(190%);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-specular), var(--glass-shadow);
+      border-radius: var(--radius-xl);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .inspector-grid {
+      display: grid;
+      grid-template-columns: 1fr 460px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* ── Apple Dropzone ── */
+    .apple-dropzone {
+      padding: 44px 32px;
+      text-align: center;
+      cursor: pointer;
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-xl);
+      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .apple-dropzone:hover, .apple-dropzone.dragover {
+      border-color: var(--apple-blue);
+      background: rgba(10, 132, 255, 0.06);
+      box-shadow: 0 0 32px var(--apple-blue-glow);
+      transform: translateY(-2px);
+    }
+    .drop-icon-glass {
+      width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 16px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-specular);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+    }
+    .drop-heading {
+      font-size: 17px; font-weight: 700; letter-spacing: -0.2px; margin-bottom: 6px;
+    }
+    .drop-description {
+      font-size: 13px; color: var(--text-sub); margin-bottom: 20px;
+    }
+    .sample-chips-row {
+      display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+    }
+    .glass-chip {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-specular);
+      padding: 6px 16px; border-radius: 99px;
+      font-size: 12px; font-weight: 600; color: var(--text-main);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .glass-chip:hover {
+      background: var(--apple-blue); color: #fff;
+      box-shadow: 0 4px 16px var(--apple-blue-glow);
+      transform: translateY(-1px);
+    }
+
+    /* ── Inspection Image Viewer ── */
+    .preview-glass-card {
+      margin-top: 20px; display: none;
+    }
+    .glass-toolbar {
+      padding: 14px 22px;
+      background: rgba(255, 255, 255, 0.04);
+      border-bottom: 1px solid var(--glass-border-sub);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .toolbar-title {
+      font-size: 14px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;
+    }
+    .glass-btn-group { display: flex; gap: 10px; }
+    .glass-btn {
+      padding: 8px 16px; border-radius: 10px;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: var(--glass-specular);
+      color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      transform: translateY(-1px);
+    }
+    .glass-btn-primary {
+      background: var(--apple-blue); border-color: var(--apple-blue);
+      box-shadow: 0 4px 16px var(--apple-blue-glow);
+    }
+    .glass-btn-primary:hover {
+      background: #0071e3;
+    }
+
+    .image-stage {
+      min-height: 400px; max-height: 640px;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .image-stage img {
+      max-width: 100%; max-height: 620px; object-fit: contain; display: block;
+    }
+
+    /* ── Right Panel: Verdict & Breakdowns ── */
+    .analysis-column {
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    /* Verdict Banner Card */
+    .verdict-glass-card {
+      padding: 24px;
+      border-radius: var(--radius-xl);
+      transition: all 0.3s;
+    }
+    .verdict-glass-card.violation {
+      background: linear-gradient(135deg, rgba(255, 69, 58, 0.16) 0%, rgba(20, 26, 40, 0.7) 100%);
+      border-color: rgba(255, 69, 58, 0.35);
+      box-shadow: 0 0 30px rgba(255, 69, 58, 0.15), var(--glass-specular);
+    }
+    .verdict-glass-card.compliant {
+      background: linear-gradient(135deg, rgba(48, 209, 88, 0.16) 0%, rgba(20, 26, 40, 0.7) 100%);
+      border-color: rgba(48, 209, 88, 0.35);
+      box-shadow: 0 0 30px rgba(48, 209, 88, 0.15), var(--glass-specular);
+    }
+    .verdict-glass-card.waiting {
+      background: var(--glass-card);
+    }
+
+    .verdict-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
+      padding: 4px 12px; border-radius: 99px; margin-bottom: 12px;
+    }
+    .verdict-pill.violation {
+      background: var(--apple-red-bg); color: var(--apple-red); border: 1px solid rgba(255, 69, 58, 0.3);
+    }
+    .verdict-pill.compliant {
+      background: var(--apple-green-bg); color: var(--apple-green); border: 1px solid rgba(48, 209, 88, 0.3);
+    }
+    .verdict-pill.waiting {
+      background: rgba(255, 255, 255, 0.08); color: var(--text-sub); border: 1px solid var(--glass-border);
+    }
+
+    .verdict-headline { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 6px; }
+    .verdict-subline { font-size: 13px; color: var(--text-sub); line-height: 1.4; }
+
+    .glass-metrics-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px;
+    }
+    .metric-cell {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--glass-border-sub);
+      border-radius: var(--radius-md); padding: 10px 12px; text-align: center;
+    }
+    .metric-title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-sub); }
+    .metric-val {
+      font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 800; margin-top: 2px;
+    }
+    .metric-cell.red .metric-val { color: var(--apple-red); }
+    .metric-cell.green .metric-val { color: var(--apple-green); }
+
+    /* Section Breakdown Cards */
+    .breakdown-card {
+      padding: 20px 22px; border-radius: var(--radius-xl);
+    }
+    .breakdown-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+    }
+    .breakdown-title {
+      font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .apple-badge-count {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 99px;
+    }
+    .apple-badge-count.red { background: var(--apple-red-bg); color: var(--apple-red); }
+    .apple-badge-count.green { background: var(--apple-green-bg); color: var(--apple-green); }
+
+    /* Item Card Details */
+    .glass-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--glass-border-sub);
+      border-radius: var(--radius-md);
+      padding: 12px 16px; margin-bottom: 10px;
+      display: flex; flex-direction: column; gap: 4px;
+      transition: all 0.2s;
+    }
+    .glass-item:last-child { margin-bottom: 0; }
+    .glass-item.wrong {
+      background: rgba(255, 69, 58, 0.05);
+      border: 1px solid rgba(255, 69, 58, 0.2);
+      border-left: 4px solid var(--apple-red);
+    }
+    .glass-item.right {
+      background: rgba(48, 209, 88, 0.04);
+      border: 1px solid rgba(48, 209, 88, 0.18);
+      border-left: 4px solid var(--apple-green);
+    }
+    .glass-item-top {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .glass-item-name {
+      font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+    }
+    .glass-conf-badge {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 6px; background: rgba(0, 0, 0, 0.35);
+    }
+    .glass-item-reason { font-size: 12px; color: var(--text-sub); line-height: 1.4; }
+    .glass-item-action { font-size: 11px; font-weight: 600; margin-top: 2px; }
+    .glass-item.wrong .glass-item-action { color: var(--apple-red); }
+    .glass-item.right .glass-item-action { color: var(--apple-green); }
+
+    .glass-empty-note {
+      text-align: center; padding: 22px; color: var(--text-dim); font-size: 13px; font-weight: 500;
+    }
+
+    /* ── TAB 2: Live Video Stream & Standby Mode ── */
+    .stream-container {
+      display: grid; grid-template-columns: 1fr 380px; gap: 24px;
+    }
+    .stream-viewport-card {
+      border-radius: var(--radius-xl); overflow: hidden; position: relative;
+    }
+    .stream-viewport-stage {
+      min-height: 480px; background: #000; display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .stream-viewport-stage img {
+      width: 100%; display: block;
+    }
+
+    /* Camera Standby Screen (when toggled off) */
+    .camera-standby-screen {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(20, 26, 40, 0.88), rgba(7, 10, 17, 0.98));
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 40px; text-align: center; z-index: 10;
+    }
+    .camera-standby-screen.visible { display: flex; }
+    .standby-lens-icon {
+      width: 76px; height: 76px; border-radius: 24px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-specular), 0 10px 30px rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 34px; margin-bottom: 18px;
+    }
+    .standby-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; color: #fff; }
+    .standby-sub { font-size: 13px; color: var(--text-sub); max-width: 320px; margin-bottom: 24px; }
+
+    /* Loading Spinner */
+    .apple-spinner {
+      width: 36px; height: 36px; border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--apple-blue); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Responsive */
+    @media (max-width: 1080px) {
+      .inspector-grid, .stream-container { grid-template-columns: 1fr; }
+      header { flex-direction: column; gap: 12px; align-items: stretch; margin: 10px; }
+      .header-actions { justify-content: space-between; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Ambient Light Orbs -->
+<div class="ambient-bg">
+  <div class="orb-1"></div>
+  <div class="orb-2"></div>
+  <div class="orb-3"></div>
+</div>
+
+<div class="app-wrapper">
+
+  <!-- ── Floating Apple Glass Header ── -->
+  <header>
+    <!-- Brand -->
+    <div class="brand-section">
+      <div class="brand-icon">🅿️</div>
+      <div class="brand-title">
+        <h1>Vision Parking AI</h1>
+        <p>Intelligent Vehicle Detection & Inspection</p>
+      </div>
+    </div>
+
+    <!-- Segmented Tab Bar -->
+    <div class="segmented-control">
+      <button class="seg-btn active" id="tab-btn-inspect" onclick="switchTab('inspect')">
+        📸 Image Inspector
+      </button>
+      <button class="seg-btn" id="tab-btn-stream" onclick="switchTab('stream')">
+        📹 Live Camera
+      </button>
+    </div>
+
+    <!-- Header Actions: Rule, Sensitivity & Camera Switch -->
+    <div class="header-actions">
+      <!-- Accuracy / Sensitivity Mode -->
+      <div class="glass-pill-select">
+        <label for="conf-select">SENSITIVITY:</label>
+        <select id="conf-select" onchange="updateConfidence(this.value)">
+          <option value="0.18" selected>🎯 Max (Drone / Aerial)</option>
+          <option value="0.28">⚡ Balanced (28%)</option>
+          <option value="0.45">🛡️ Strict (45%)</option>
+        </select>
+      </div>
+
+      <!-- Rule Selector -->
+      <div class="glass-pill-select">
+        <label for="rule-select">ALLOWED:</label>
+        <select id="rule-select" onchange="updateRule(this.value)">
+          <option value="car"        {% if allowed_vehicle=='car' %}selected{% endif %}>🚗 Cars Only</option>
+          <option value="motorcycle" {% if allowed_vehicle=='motorcycle' %}selected{% endif %}>🏍️ Motorcycles Only</option>
+          <option value="bus"        {% if allowed_vehicle=='bus' %}selected{% endif %}>🚌 Buses Only</option>
+          <option value="truck"      {% if allowed_vehicle=='truck' %}selected{% endif %}>🚛 Trucks Only</option>
+          <option value="bicycle"    {% if allowed_vehicle=='bicycle' %}selected{% endif %}>🚲 Bicycles Only</option>
+        </select>
+      </div>
+
+      <!-- Camera ON / OFF Toggle Switch -->
+      <div class="camera-toggle-group">
+        <div class="camera-status-label" id="camera-label">
+          <div class="camera-dot" id="camera-dot"></div>
+          <span id="camera-text">CAMERA OFF</span>
+        </div>
+        <label class="ios-switch">
+          <input type="checkbox" id="camera-switch" onchange="toggleCameraStream(this.checked)" />
+          <span class="ios-slider"></span>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main Content ── -->
+  <main>
+
+    <!-- ════════════════ TAB 1: Image Inspector ════════════════ -->
+    <div id="tab-inspect" class="tab-content active">
+      <div class="inspector-grid">
+
+        <!-- Left Column: Dropzone & Image Viewport -->
+        <div class="left-pane">
+
+          <!-- Dropzone Card -->
+          <div class="glass-card apple-dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+            <input type="file" id="file-input" accept="image/*" style="display: none" onchange="handleFileSelect(event)" />
+            <div class="drop-icon-glass">􀇾</div>
+            <h2 class="drop-heading">Drop parking photo here or click to browse</h2>
+            <p class="drop-description">Upload any photo (JPG, PNG, WEBP) to instantly detect vehicles and inspect violations.</p>
+
+            <div class="sample-chips-row" onclick="event.stopPropagation()">
+              <button class="glass-chip" onclick="loadSample('sample_truck_motorcycle_combo.jpg')">🚛 🏍️ 🚗 Combined Trucks + Bikes + Cars</button>
+              <button class="glass-chip" onclick="loadSample('demo_input.jpg')">🅿️ Aerial Parking Lot (19 Cars)</button>
+              <button class="glass-chip" onclick="loadSample('sample_bikes_cars.jpg')">🏍️ Motorcycle</button>
+              <button class="glass-chip" onclick="loadSample('sample_truck_delivery.jpg')">🚛 Delivery Truck</button>
+            </div>
+          </div>
+
+          <!-- Loading State -->
+          <div id="inspect-loading" style="display: none; text-align: center; padding: 48px;">
+            <div class="apple-spinner"></div>
+            <p style="font-weight: 600; color: var(--text-sub); font-size: 14px;">Analyzing photo with YOLOv8 & evaluating parking rules...</p>
+          </div>
+
+          <!-- Annotated Image Result Viewer -->
+          <div class="glass-card preview-glass-card" id="preview-card">
+            <div class="glass-toolbar">
+              <div class="toolbar-title" id="preview-title">
+                <span>🎯 Annotated Detection Result</span>
+              </div>
+              <div class="glass-btn-group">
+                <button class="glass-btn" id="btn-toggle-view" onclick="toggleImageView()">Show Original</button>
+                <button class="glass-btn glass-btn-primary" onclick="downloadAnnotatedImage()">⬇️ Download Result</button>
+              </div>
+            </div>
+            <div class="image-stage">
+              <img id="main-preview-img" src="" alt="Detection result" />
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Verdict & Analysis -->
+        <div class="analysis-column">
+
+          <!-- Verdict Card -->
+          <div class="glass-card verdict-glass-card waiting" id="verdict-card">
+            <div class="verdict-pill waiting" id="verdict-badge">Waiting For Image</div>
+            <h2 class="verdict-headline" id="verdict-title">Select or Upload a Photo</h2>
+            <p class="verdict-subline" id="verdict-desc">Drop an image to inspect which vehicles are allowed and what is in violation.</p>
+
+            <div class="glass-metrics-grid">
+              <div class="metric-cell">
+                <div class="metric-title">Total</div>
+                <div class="metric-val" id="stat-total">0</div>
+              </div>
+              <div class="metric-cell red">
+                <div class="metric-title">Wrong</div>
+                <div class="metric-val" id="stat-wrong">0</div>
+              </div>
+              <div class="metric-cell green">
+                <div class="metric-title">Right</div>
+                <div class="metric-val" id="stat-right">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ❌ WHAT IS WRONG (Violations) -->
+          <div class="glass-card breakdown-card">
+            <div class="breakdown-header">
+              <div class="breakdown-title" style="color: var(--apple-red);">
+                <span>❌ What Is Wrong (Violations)</span>
+              </div>
+              <span class="apple-badge-count red" id="badge-wrong-count">0</span>
+            </div>
+            <div id="list-wrong">
+              <div class="glass-empty-note">No violations detected yet.</div>
+            </div>
+          </div>
+
+          <!-- ✅ WHAT IS RIGHT (Permitted) -->
+          <div class="glass-card breakdown-card">
+            <div class="breakdown-header">
+              <div class="breakdown-title" style="color: var(--apple-green);">
+                <span>✅ What Is Right (Permitted)</span>
+              </div>
+              <span class="apple-badge-count green" id="badge-right-count">0</span>
+            </div>
+            <div id="list-right">
+              <div class="glass-empty-note">No compliant vehicles detected yet.</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ════════════════ TAB 2: Live Video Stream ════════════════ -->
+    <div id="tab-stream" class="tab-content">
+      <div class="stream-container">
+
+        <!-- Video Frame with Camera Standby Screen -->
+        <div class="glass-card stream-viewport-card">
+          <div class="glass-toolbar">
+            <div class="toolbar-title">
+              <span>📹 Live Surveillance Stream</span>
+            </div>
+            <div class="glass-btn-group">
+              <button class="glass-btn" onclick="toggleCameraFromButton()" id="btn-cam-control">Pause Camera</button>
+            </div>
+          </div>
+
+          <div class="stream-viewport-stage">
+            <img id="live-stream-img" src="" alt="Live camera feed" />
+
+            <!-- Standby screen when camera is turned off -->
+            <div class="camera-standby-screen" id="camera-standby">
+              <div class="standby-lens-icon">📷</div>
+              <h3 class="standby-title">Camera Stream is Paused</h3>
+              <p class="standby-sub">Camera hardware and streaming resources are suspended. Turn on the switch above to resume live detection.</p>
+              <button class="glass-btn glass-btn-primary" onclick="setCameraState(true)">▶️ Turn Camera On</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Stream Stats -->
+        <div class="analysis-column">
+          <div class="glass-card breakdown-card">
+            <div class="breakdown-header">
+              <div class="breakdown-title">Live System Status</div>
+            </div>
+            <p style="font-size: 13px; color: var(--text-sub); line-height: 1.5;" id="stream-info">
+              Real-time YOLOv8 neural inference monitoring active parking zones.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  /* ── State & Variables ── */
+  let currentAnnotatedB64 = '';
+  let currentOriginalB64  = '';
+  let showingOriginal     = false;
+  let activeTab           = 'inspect';
+  let isCameraOn          = false;
+  const ICONS = { car: '🚗', motorcycle: '🏍️', bus: '🚌', truck: '🚛', bicycle: '🚲' };
+
+  /* ── Tab Switching ── */
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    if (tab === 'inspect') {
+      document.getElementById('tab-btn-inspect').classList.add('active');
+      document.getElementById('tab-inspect').classList.add('active');
+      document.getElementById('live-stream-img').src = '';
+    } else {
+      document.getElementById('tab-btn-stream').classList.add('active');
+      document.getElementById('tab-stream').classList.add('active');
+      if (isCameraOn) {
+        document.getElementById('live-stream-img').src = '/video_feed';
+      }
+    }
+  }
+
+  /* ── Camera ON / OFF Switch Handling ── */
+  async function toggleCameraStream(enabled) {
+    await setCameraState(enabled);
+  }
+
+  function toggleCameraFromButton() {
+    setCameraState(!isCameraOn);
+  }
+
+  async function setCameraState(enabled) {
+    isCameraOn = enabled;
+    document.getElementById('camera-switch').checked = enabled;
+
+    const dot = document.getElementById('camera-dot');
+    const label = document.getElementById('camera-label');
+    const text = document.getElementById('camera-text');
+    const standby = document.getElementById('camera-standby');
+    const streamImg = document.getElementById('live-stream-img');
+    const btnControl = document.getElementById('btn-cam-control');
+
+    if (enabled) {
+      dot.className = 'camera-dot on';
+      label.className = 'camera-status-label on';
+      text.textContent = 'CAMERA ON';
+      standby.classList.remove('visible');
+      if (activeTab === 'stream') {
+        streamImg.src = '/video_feed';
+      }
+      if (btnControl) btnControl.textContent = 'Pause Camera';
+    } else {
+      dot.className = 'camera-dot';
+      label.className = 'camera-status-label';
+      text.textContent = 'CAMERA OFF';
+      standby.classList.add('visible');
+      streamImg.src = '';
+      if (btnControl) btnControl.textContent = 'Start Camera';
+    }
+
+    // Inform backend to pause thread & save CPU
+    try {
+      await fetch('/api/camera/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enabled })
+      }
+
+;
+    } catch (e) { /* ignore */ }
+  }
+
+  /* ── Initialize camera UI after DOM ready ── */
+  window.addEventListener('DOMContentLoaded', () => {
+    setCameraState(isCameraOn);
+  });
+
+  /* ── Update Rule ── */
+  async function updateRule(vehicle) {
+    await fetch('/api/set_rule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ allowed_vehicle: vehicle })
+    });
+    if (currentOriginalB64) {
+      analyzeBase64(currentOriginalB64, vehicle);
+    }
+  }
+
+  /* ── Update Confidence / Sensitivity ── */
+  function updateConfidence(val) {
+    if (currentOriginalB64) {
+      analyzeBase64(currentOriginalB64, document.getElementById('rule-select').value);
+    }
+  }
+
+  /* ── Drag and Drop Handlers ── */
+  const dropzone = document.getElementById('dropzone');
+  ['dragenter', 'dragover'].forEach(name => {
+    dropzone.addEventListener(name, e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(name => {
+    dropzone.addEventListener(name, e => { e.preventDefault(); dropzone.classList.remove('dragover'); });
+  });
+  dropzone.addEventListener('drop', e => {
+    if (e.dataTransfer.files.length) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  function handleFileSelect(e) {
+    if (e.target.files.length) {
+      handleFile(e.target.files[0]);
+    }
+  }
+
+  function handleFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      analyzeBase64(reader.result, document.getElementById('rule-select').value);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ── Load Sample Preset ── */
+  async function loadSample(sampleName) {
+    const rule = document.getElementById('rule-select').value;
+    const conf = parseFloat(document.getElementById('conf-select').value || '0.18');
+    showLoading(true);
+    try {
+      const res = await fetch('/api/detect_image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sample: sampleName, allowed_vehicle: rule, confidence: conf })
+      });
+      const data = await res.json();
+      renderResults(data);
+    } catch (err) {
+      alert('Failed to analyze sample: ' + err);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  /* ── Analyze Base64 Image ── */
+  async function analyzeBase64(b64, rule) {
+    const conf = parseFloat(document.getElementById('conf-select').value || '0.18');
+    showLoading(true);
+    try {
+      const res = await fetch('/api/detect_image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: b64, allowed_vehicle: rule, confidence: conf })
+      });
+      const data = await res.json();
+      renderResults(data);
+    } catch (err) {
+      alert('Error during image detection: ' + err);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function showLoading(show) {
+    document.getElementById('inspect-loading').style.display = show ? 'block' : 'none';
+    if (show) {
+      document.getElementById('preview-card').style.display = 'none';
+    }
+  }
+
+  /* ── Render Inspection Results ── */
+  function renderResults(data) {
+    currentAnnotatedB64 = data.annotated_image;
+    currentOriginalB64  = data.original_image;
+    showingOriginal     = false;
+
+    // Display image
+    const imgEl = document.getElementById('main-preview-img');
+    imgEl.src = currentAnnotatedB64;
+    document.getElementById('preview-card').style.display = 'block';
+    document.getElementById('btn-toggle-view').textContent = 'Show Original';
+
+    // Stats
+    document.getElementById('stat-total').textContent = data.total_vehicles;
+    document.getElementById('stat-wrong').textContent = data.wrong_count;
+    document.getElementById('stat-right').textContent = data.right_count;
+    document.getElementById('badge-wrong-count').textContent = data.wrong_count;
+    document.getElementById('badge-right-count').textContent = data.right_count;
+
+    // Verdict Card
+    const vCard  = document.getElementById('verdict-card');
+    const vBadge = document.getElementById('verdict-badge');
+    const vTitle = document.getElementById('verdict-title');
+    const vDesc  = document.getElementById('verdict-desc');
+
+    vCard.className = 'glass-card verdict-glass-card';
+    vBadge.className = 'verdict-pill';
+
+    if (data.verdict === 'VIOLATIONS_FOUND') {
+      vCard.classList.add('violation');
+      vBadge.classList.add('violation');
+      vBadge.textContent = '🚨 Violations Detected';
+      vTitle.textContent = `${data.wrong_count} Unauthorized Vehicle${data.wrong_count > 1 ? 's' : ''}`;
+      vDesc.textContent = `Found vehicles in direct violation of the ${data.allowed_rule.toUpperCase()}-only parking restriction.`;
+    } else if (data.verdict === 'ALL_COMPLIANT') {
+      vCard.classList.add('compliant');
+      vBadge.classList.add('compliant');
+      vBadge.textContent = '✅ All Clear';
+      vTitle.textContent = '100% Compliant Parking';
+      vDesc.textContent = `All detected vehicles match the designated ${data.allowed_rule.toUpperCase()} rule.`;
+    } else {
+      vCard.classList.add('waiting');
+      vBadge.classList.add('waiting');
+      vBadge.textContent = 'ℹ️ No Vehicles';
+      vTitle.textContent = 'No Vehicles Detected';
+      vDesc.textContent = 'No cars, motorcycles, buses, or trucks were found in this image.';
+    }
+
+    // List: What is Wrong
+    const listWrong = document.getElementById('list-wrong');
+    if (!data.wrong_items || data.wrong_items.length === 0) {
+      listWrong.innerHTML = '<div class="glass-empty-note">✅ No violations! All vehicles are authorized.</div>';
+    } else {
+      listWrong.innerHTML = data.wrong_items.map(item => `
+        <div class="glass-item wrong">
+          <div class="glass-item-top">
+            <div class="glass-item-name">${ICONS[item.label] || '🚙'} ${item.label.toUpperCase()} #${item.id}</div>
+            <span class="glass-conf-badge" style="color: var(--apple-red);">${item.confidence}% Match</span>
+          </div>
+          <div class="glass-item-reason">${item.reason}</div>
+          <div class="glass-item-action">⚠️ ${item.action}</div>
+        </div>
+      `).join('');
+    }
+
+    // List: What is Right
+    const listRight = document.getElementById('list-right');
+    if (!data.right_items || data.right_items.length === 0) {
+      listRight.innerHTML = '<div class="glass-empty-note">No permitted vehicles found in this frame.</div>';
+    } else {
+      listRight.innerHTML = data.right_items.map(item => `
+        <div class="glass-item right">
+          <div class="glass-item-top">
+            <div class="glass-item-name">${ICONS[item.label] || '🚙'} ${item.label.toUpperCase()} #${item.id}</div>
+            <span class="glass-conf-badge" style="color: var(--apple-green);">${item.confidence}% Match</span>
+          </div>
+          <div class="glass-item-reason">${item.reason}</div>
+          <div class="glass-item-action">✓ ${item.action}</div>
+        </div>
+      `).join('');
+    }
+  }
+
+  /* ── Toggle Image View ── */
+  function toggleImageView() {
+    showingOriginal = !showingOriginal;
+    const imgEl = document.getElementById('main-preview-img');
+    const btn = document.getElementById('btn-toggle-view');
+
+    if (showingOriginal) {
+      imgEl.src = currentOriginalB64;
+      btn.textContent = 'Show Annotated';
+    } else {
+      imgEl.src = currentAnnotatedB64;
+      btn.textContent = 'Show Original';
+    }
+  }
+
+  /* ── Download Result ── */
+  function downloadAnnotatedImage() {
+    if (!currentAnnotatedB64) return;
+    const a = document.createElement('a');
+    a.href = currentAnnotatedB64;
+    a.download = 'vision_parking_inspection.jpg';
+    a.click();
+  }
+
+  // Load sample on initial load
+  window.addEventListener('DOMContentLoaded', () => {
+    loadSample('demo_input.jpg');
+  });
+</script>
+
+</body>
+</html>
